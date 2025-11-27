@@ -1,0 +1,146 @@
+-- LocalScript: вставить в StarterPlayerScripts или в StarterGui (LocalScript)
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Параметры анимации
+local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Создаём ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SimpleMenuGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Кнопка-тоггл (угол)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleButton"
+toggleBtn.Size = UDim2.new(0, 60, 0, 60)
+toggleBtn.Position = UDim2.new(0, 16, 0, 16) -- левый верхний угол
+toggleBtn.AnchorPoint = Vector2.new(0,0)
+toggleBtn.Text = "☰"
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 28
+toggleBtn.BackgroundTransparency = 0.15
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Parent = screenGui
+toggleBtn.AutoButtonColor = true
+toggleBtn.BorderSizePixel = 0
+
+-- Меню (скрытое изначально, будет выезжать справа от кнопки)
+local menuFrame = Instance.new("Frame")
+menuFrame.Name = "MenuFrame"
+menuFrame.Size = UDim2.new(0, 300, 0, 220)
+menuFrame.Position = UDim2.new(0, 16, 0, 16) -- начнёт в той же позиции, но сместим по X, чтобы было скрыто
+menuFrame.BackgroundTransparency = 0
+menuFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+menuFrame.BorderSizePixel = 0
+menuFrame.Parent = screenGui
+menuFrame.Visible = true
+
+-- Внутренняя панель для отступов
+local inner = Instance.new("Frame")
+inner.Size = UDim2.new(1, -16, 1, -16)
+inner.Position = UDim2.new(0, 8, 0, 8)
+inner.BackgroundTransparency = 1
+inner.Parent = menuFrame
+
+-- Заголовок
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 28)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Меню"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.new(1,1,1)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = inner
+
+-- Пример кнопки в меню
+local function createMenuButton(text, yOffset, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, 40)
+	btn.Position = UDim2.new(0, 0, 0, yOffset)
+	btn.BackgroundTransparency = 0.08
+	btn.BackgroundColor3 = Color3.fromRGB(25,25,25)
+	btn.BorderSizePixel = 0
+	btn.Text = text
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 18
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Parent = inner
+	btn.MouseButton1Click:Connect(function()
+		if onClick then onClick() end
+	end)
+	return btn
+end
+
+-- Добавляем несколько кнопок
+createMenuButton("Option 1", 36, function()
+	print("Нажата Option 1")
+end)
+
+createMenuButton("Option 2", 36 + 46, function()
+	print("Нажата Option 2")
+end)
+
+createMenuButton("Закрыть меню", 36 + 92, function()
+	-- использует функцию toggle ниже
+	toggleMenu(false)
+end)
+
+-- Скрываем меню изначально: сдвигаем влево (за границу) и сделаем флаг
+local menuOpen = false
+-- Хотим, чтобы конечная видимая позиция была справа от кнопки
+local openedPosition = UDim2.new(0, 16, 0, 16)
+local hiddenPosition = UDim2.new(0, -menuFrame.Size.X.Offset - 8, 0, 16) -- за экраном слева
+
+-- Установка начальной позиции (скрыта)
+menuFrame.Position = hiddenPosition
+
+-- Функция переключения
+function toggleMenu(state)
+	if state == nil then state = not menuOpen end
+	if state == menuOpen then return end
+	menuOpen = state
+
+	if menuOpen then
+		-- показываем (подвинем вправо до openedPosition)
+		local tween = TweenService:Create(menuFrame, tweenInfo, {Position = openedPosition})
+		tween:Play()
+	else
+		-- прячем обратно
+		local tween = TweenService:Create(menuFrame, tweenInfo, {Position = hiddenPosition})
+		tween:Play()
+	end
+end
+
+-- Привязываем кнопку к переключению
+toggleBtn.MouseButton1Click:Connect(function()
+	toggleMenu()
+end)
+
+-- Также реагируем на клавишу M
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == Enum.KeyCode.M then
+			toggleMenu()
+		end
+	end
+end)
+
+-- Небольшая доработка: при изменении размера экрана поправляем hiddenPosition
+screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	-- recompute hidden position using current menu width
+	local width = menuFrame.AbsoluteSize.X
+	hiddenPosition = UDim2.new(0, -width - 8, 0, 16)
+	if not menuOpen then
+		menuFrame.Position = hiddenPosition
+	end
+end)
